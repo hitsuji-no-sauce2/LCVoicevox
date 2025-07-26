@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using HarmonyLib;
+using Newtonsoft.Json;
 using UnityEngine;
 
 [HarmonyPatch(typeof(HUDManager), "AddChatMessage")]
@@ -26,15 +28,15 @@ public static class ChatPatch
         {
             
             UnityEngine.Debug.Log($"[ChatLogger] {nameOfUserWhoTyped}: {chatMessage}");
-
-            Task.Run(() => TextToVoice(chatMessage, playerWhoSent));
+            int speaker = Voicevox.Voicevox.speakers[0];
+            if (playerWhoSent != -1)speaker = Voicevox.Voicevox.speakers[playerWhoSent % 4];
+            Task.Run(() => TextToVoice(chatMessage, speaker));
         }
     }
 
-    private static async Task TextToVoice(string text,int playerWhoSent)
+    private static async Task TextToVoice(string text,int speaker)
     {
-        // GetVoicevoxAudioの引数speakerで使用するキャラクターを変更
-        var voiceData = await voicevoxClient.GetVoicevoxAudio(text,1);
+        var voiceData = await voicevoxClient.GetVoicevoxAudio(text,speaker);
         if(voiceData == null)return;
 
         var clip = WavUtility.ToAudioClip(voiceData);
@@ -50,7 +52,6 @@ public static class ChatPatch
 
 public class VoicevoxClient
 {
-    private static readonly HttpClient client = new HttpClient();
 
     public async Task<byte[]?> GetVoicevoxAudio(string text, int speaker = 1)
     {
@@ -70,6 +71,7 @@ public class VoicevoxClient
                 var response = await httpClient.SendAsync(request);
 
                 query = response.Content.ReadAsStringAsync().Result;
+                query = EditVolume(query);
             }
             
             // 音声クエリから音声合成
@@ -85,8 +87,25 @@ public class VoicevoxClient
                 
             }
         }
-        Console.WriteLine(result.Length);
         return result;
+    }
+
+    public static string EditVolume(string query)
+    {
+
+        // JSON文字列をDictionaryに変換
+        Dictionary<string, object> dict = JsonConvert.DeserializeObject<Dictionary<string, object>>(query);
+
+        
+        if (dict.ContainsKey("volumeScale"))
+        {
+            dict["volumeScale"] = Voicevox.Voicevox.voiceVolume/10;
+        }
+
+        // Dictionaryを再びJSON文字列に変換
+        string updatedQuery = JsonConvert.SerializeObject(dict, Formatting.Indented);
+
+        return updatedQuery;
     }
 }
 

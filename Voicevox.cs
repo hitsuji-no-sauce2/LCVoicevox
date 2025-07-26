@@ -15,6 +15,7 @@ public class Voicevox : BaseUnityPlugin
 
 
     public static int[] speakers;
+    public static int voiceVolume;
     
 
     private void Awake()
@@ -48,11 +49,20 @@ public class ConfigUtil
     public static void Init(ConfigFile config)
     {
         ConfigEntry<int>[] speakers = new ConfigEntry<int>[4];
+        ConfigEntry<int> voiceVolume;
 
         for (int i = 0; i < 4; i++)
         {
             speakers[i] = config.Bind("General", $"Player{i+1}", i+1, "");
             Voicevox.speakers[i] = speakers[i].Value;
         }
+        voiceVolume=config.Bind("General", "Volume", 50, new ConfigDescription("",new AcceptableValueRange<int>(1,100)));
+        Voicevox.voiceVolume = voiceVolume.Value;
+    }
+    
+    public static void ReloadConfig()
+    {
+        ConfigFile cfg = new ConfigFile(Paths.ConfigPath + "/HitsujiSauce.Voicevox.cfg", true);
+        Init(cfg);
     }
 }
